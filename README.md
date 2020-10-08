@@ -7,8 +7,6 @@ The purpose is to provide 1 location to find free games.
 
 Homepage first mock up designed. 
 
-**Need to work on Nav bar**
-
 Design feedback is highly appreciated via figma link below or discord Hunter#2950
 
 https://www.figma.com/file/pY3wk0kgA0UDJFndxGIgNI/FreeCity?node-id=0%3A1
