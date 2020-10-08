@@ -3,6 +3,8 @@
 GameCityFree is a webapp/desktop app that provide source for free games. This include games that are paid and have turned free or games that go free to play on weekend.
 The purpose is to provide 1 location to find free games.
 
+**The project is aimed to be finished and ready for production by January 5th 2021**
+
 Homepage first mock up designed. 
 
 **Need to work on Nav bar**
