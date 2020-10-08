@@ -14,4 +14,4 @@ Design feedback is highly appreciated via figma link below or discord Hunter#295
 https://www.figma.com/file/pY3wk0kgA0UDJFndxGIgNI/FreeCity?node-id=0%3A1
 
 
-![](https://storage.googleapis.com/portfolio_asset/Frame%205.png)
+![](https://storage.googleapis.com/portfolio_asset/Mock%206.png)
