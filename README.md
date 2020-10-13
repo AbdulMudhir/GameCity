@@ -16,5 +16,4 @@ https://www.figma.com/file/pY3wk0kgA0UDJFndxGIgNI/FreeCity?node-id=0%3A1
 
 
 **current database for collecting games** **database will be ammended as I go along**
-
-![](https://storage.googleapis.com/portfolio_asset/chrome_m4BF3CXlrV.png)
+**database removed for time being**
