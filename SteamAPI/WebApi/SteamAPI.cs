@@ -7,7 +7,7 @@ using SteamAPI.Interfaces;
 using SteamAPI.Utilities;
 using SteamAPI.Models.JsonDeserializeModel;
 using Newtonsoft.Json;
-using Esendex.TokenBucket;
+using CasCap.Apis.TokenBucket;
 
 namespace SteamAPI.WebApi
 {
@@ -15,6 +15,7 @@ namespace SteamAPI.WebApi
     {
 
         private readonly HttpClient _httpclient;
+        // will be used for rate limiting
         private readonly ITokenBucket _steamApiBucket;
 
         public SteamAPI() : this(SteamFactory.GetHttpClient())
@@ -75,7 +76,8 @@ namespace SteamAPI.WebApi
 
 
         }
-
-
-
     }
+
+
+
+}

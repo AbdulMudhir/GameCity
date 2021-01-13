@@ -9,7 +9,7 @@ namespace GameManager
     {
 
 
-        public static async Task Main(string[] args)
+        public static void Main(string[] args)
         {
 
 
