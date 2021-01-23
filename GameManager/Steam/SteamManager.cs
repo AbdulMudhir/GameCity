@@ -94,48 +94,68 @@ namespace GameManager.Steam
         {
 
 
-            var steamAppIds = gamesDealToCheck.Select(gd => gd.Game.SteamApp.SteamId).ToList();
-
-            var listOfSteamAppIdsArrays = Helper.SplitList(steamAppIds, 50);
+            var steamAppIds = gamesDealToCheck.Select(gd => gd.Game.SteamApp.SteamId).Split(700);
 
             var totalUpdatedROW = 0;
 
-            foreach (List<int> ids in listOfSteamAppIdsArrays)
+            foreach (List<int> ids in steamAppIds)
             {
-                var latestPrices = await _steamAPI.GetPriceBySteamIdAsync(ids);
+                var steamData = await _steamAPI.GetPriceBySteamIdAsync(ids);
                 var dealsToUpdate = new HashSet<GameDeal>(new List<GameDeal>());
-                foreach (var price in latestPrices)
+
+                foreach (var data in steamData)
                 {
-                    var steamid = Int32.Parse(price.Key);
-                    if (price.Value.Success)
-                    {
-                        var gamedeal = gamesDealToCheck.FirstOrDefault(gd => gd.Game.SteamApp.SteamId == steamid);
+                      int steamid = Int32.Parse(data.Key);
 
-                        if (price.Value.Data != null)
+                        bool dataSuccessed = data.Value.Success;
+
+                        if (dataSuccessed)
                         {
+                            var price = data.Value.Data != null ? data.Value.Data.PriceOverview : null;
 
-                            bool priceChange = await PriceChange(gamedeal, price.Value.Data.PriceOverview);
-
-                            if (priceChange)
+                            if (price != null)
                             {
-                                gamedeal.DealDate.Expired = true;
-                                gamedeal.DealDate.ExpiredDate = DateTime.Now;
-                                dealsToUpdate.Add(gamedeal);
+                                var gamedeal = gamesDealToCheck.FirstOrDefault(gd => gd.Game.SteamApp.SteamId == steamid
+                                   && gd.PriceOverview.Currency.Code == price.Currency.Trim());
+
+                                if (gamedeal != null)
+                                {
+                                    bool priceChange = await PriceChange(gamedeal, price);
+
+                                    if (priceChange)
+                                    {
+                                        gamedeal.DealDate.Expired = true;
+                                        gamedeal.DealDate.ExpiredDate = DateTime.Now;
+                                        dealsToUpdate.Add(gamedeal);
+                                    }
+                                }
+                                else
+                                {
+                                    var game = await _gamecity.GetGameBySteamIdAsync(steamid);
+                                    if (game == null)
+                                    {
+                                        throw new Exception("Game does not exist in DB");
+                                    }
+                                    Console.WriteLine($"The following Game does not have new deal {game.Title}: {steamid} | price {price.FinalFormat}");
+
+                                    await AddGameDeal(price, steamid, game.GameID);
+                                }
                             }
+                            else
+                            {
+                                Console.WriteLine($"The following game does not have any price data associated with it {steamid}");
+                            }
+
                         }
                         else
                         {
-                            Console.WriteLine($"The following game does not have any price data associated with it {steamid}");
+                            Console.WriteLine("Game is no longer avaliable");
                         }
-
-                    }
-                    else
-                    {
-                        throw new Exception("Was unable to retrieve data from steam for prices.");
-                    }
+                  
                 }
                 //update the database and expire the games
                 totalUpdatedROW += await _gamecity.UpdateMultipleGameDeals(dealsToUpdate.ToList());
+
             }
 
             return totalUpdatedROW;
@@ -153,7 +173,7 @@ namespace GameManager.Steam
 
                 var totalUpdatedROW = await UpdateSteamGames(gameDealsCurrentlyOnSale);
 
-                Console.WriteLine($"the total amount of limitedTimeSales updated {totalUpdatedROW}");
+                Console.WriteLine($"the total amount of limited TimeSales updated {totalUpdatedROW}");
 
                 // check every 30 minutes if prices have changed
                 await Task.Delay(TimeSpan.FromMinutes(30));
@@ -190,8 +210,8 @@ namespace GameManager.Steam
 
         public void Start()
         {
-            CheckSteamGameLimitedTimeSales(_tokenSource.Token);
-            CheckSteamGameDailyPrice(_tokenSource.Token);
+            // CheckSteamGameLimitedTimeSales(_tokenSource.Token);
+            // CheckSteamGameDailyPrice(_tokenSource.Token);
             PopualteFromSteamWEBAPIDatabase(_tokenSource.Token);
         }
 
@@ -212,7 +232,25 @@ namespace GameManager.Steam
 
                         if (sd != null)
                         {
-                            var gameID = await AddGame(sd);
+                            Guid gameID;
+
+                            try
+                            {
+                                gameID = await AddGame(sd);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine($@"following game could not be added due to the following error {e.Message}. 
+                                Steam Id has been added to database to track. SteamId {sd.SteamAppID} from api and {steamApp.appid} from old api");
+                                Console.WriteLine(e.Message);
+                                throw e;
+                                _gamecity.CreateSteamApp(new Domain.DatabaseModel.SteamApp
+                                {
+                                    SteamId = steamApp.appid,
+                                });
+                                
+                                continue;
+                            }
                             await AddGameCategories(sd.Categories, gameID);
                             await AddGameDeal(sd.PriceOverview, sd.SteamAppID, gameID);
                             await AddGameDevelopers(sd.Developers, gameID);
@@ -222,6 +260,8 @@ namespace GameManager.Steam
                             await AddSystemRequirement(sd, gameID);
                             await AddScreenshots(sd.Screenshots, gameID);
                             await AddVideo(sd.Movies, gameID);
+
+
 
                         }
                         else
@@ -233,7 +273,6 @@ namespace GameManager.Steam
                             });
                         }
 
-                        await Task.Delay(1500, token);
 
                     }
 
@@ -347,8 +386,8 @@ namespace GameManager.Steam
             if (publisher != null)
             {
 
-
-                var filted = publisher.Select(c => new Publisher { Name = c }).ToList();
+                var set = new HashSet<string>(publisher);
+                var filted = set.Select(c => new Publisher { Name = c }).ToList();
 
                 var publisherGuids = await _gamecity.AddPublisherAsync(filted);
 
@@ -398,8 +437,9 @@ namespace GameManager.Steam
             if (developers != null)
             {
 
+                var set = new HashSet<string>(developers);
 
-                var filted = developers.Select(c => new Developer { Name = c }).ToList();
+                var filted = set.Select(c => new Developer { Name = c }).ToList();
 
                 var developersGuids = await _gamecity.AddDevelopersAsync(filted);
 

@@ -18,9 +18,15 @@ namespace SteamAPI.Utilities
             JToken token = JToken.Load(reader);
 
             if (token.Type == JTokenType.String)
-            {
+            {   
+                var content = token.Value<string>();
 
-                return int.Parse(token.Value<string>());
+                int conversion = 0;
+
+                int.TryParse(content, out conversion);
+
+
+                return conversion;
             }
 
             var tokens = token.Value<int>();

@@ -9,7 +9,7 @@ namespace Domain.DatabaseModel
     {
         public Guid DeveloperId { get; set; }
         [Required]
-        [MaxLength(120)]
+        [MaxLength(1000)]
         public string Name { get; set; }
 
     }

@@ -39,6 +39,7 @@ namespace Application.GameCity
                            .Include(p => p.PriceOverview)
                            .Include(g => g.Game)
                            .Include(s => s.Game.SteamApp)
+                           .Include(gd => gd.PriceOverview.Currency)
                            .Include(dd => dd.DealDate).ToListAsync();
 
                 return games;
@@ -46,17 +47,18 @@ namespace Application.GameCity
 
         }
 
-           public async Task<List<GameDeal>> GetAllSteamGameDeals()
+        public async Task<List<GameDeal>> GetAllSteamGameDeals()
         {
 
             using (var database = DbFactory.GetDatabaseContext())
             {
                 var games = await database.GameDeal
-                           .Where(gd =>gd.Store.Name == "steam" && !gd.DealDate.Expired 
+                           .Where(gd => gd.Store.Name == "steam" && !gd.DealDate.Expired
                             && !gd.Game.ReleaseDate.ComingSoon && gd.PriceOverview != null)
                            .Include(p => p.PriceOverview)
                            .Include(g => g.Game)
                            .Include(s => s.Game.SteamApp)
+                            .Include(gd => gd.PriceOverview.Currency)
                            .Include(dd => dd.DealDate).ToListAsync();
 
                 return games;
@@ -70,7 +72,7 @@ namespace Application.GameCity
             using (var database = DbFactory.GetDatabaseContext())
             {
                 var gamedeal = await database.GameDeal.Include(gd => gd.PriceOverview).FirstOrDefaultAsync(gd =>
-                
+
                 gd.Game.SteamApp.SteamId == steamId && gd.DealDate.LimitedTimeDeal
                 && !gd.DealDate.Expired && gd.Store.Name.ToLower() == storeName.ToLower()
                 );
@@ -184,7 +186,7 @@ namespace Application.GameCity
         {
             using (var database = context ?? DbFactory.GetDatabaseContext())
             {
-                var gameDB = await database.Game.Where(g => g.SteamApp.SteamId == game.SteamApp.SteamId).FirstOrDefaultAsync();
+                var gameDB = database.Game.Where(g => g.SteamApp.SteamId == game.SteamApp.SteamId).FirstOrDefault();
 
 
                 if (gameDB == null)
@@ -234,22 +236,25 @@ namespace Application.GameCity
 
             using (var database = context ?? DbFactory.GetDatabaseContext())
             {
-                var categoriesDB = new HashSet<Category>(database.Category);
 
+                // return any publishers not in database
+                var categoriesNotInDB = categories.Where(c => !database.Category
+                .Any(db => c.Description.ToLower().Trim() == db.Description.ToLower().Trim()));
 
-                var categoriesToAdd = categories.Where(c => !categoriesDB.Any(db => c.Description.Trim().ToLower() == db.Description.Trim().ToLower()));
-
-
-                database.Category.AddRange(categoriesToAdd);
+                database.Category.AddRange(categoriesNotInDB);
 
                 await database.SaveChangesAsync();
 
-                var filteredCategoriesAdded = categories.Where(c => categoriesDB.Any(db => c.Description.Trim().ToLower() == db.Description.Trim().ToLower())).ToList();
+                // return all of the publishers from databased based on the list
+                var categoriesInDB = categories.Select
+                (p => database.Category.First
+               (pb => pb.Description.ToLower().Trim() == p.Description.ToLower().Trim()));
 
-                filteredCategoriesAdded.AddRange(categoriesToAdd);
+                return categoriesInDB.Select(f => f.CategoryId).ToList();
 
 
-                return filteredCategoriesAdded.Select(c => c.CategoryId).ToList();
+
+
             }
 
         }
@@ -286,27 +291,27 @@ namespace Application.GameCity
 
         }
 
-        public async Task<List<Guid>> AddDevelopersAsync(List<Developer> filted, DatabaseContext context = null)
+        public async Task<List<Guid>> AddDevelopersAsync(List<Developer> developers, DatabaseContext context = null)
         {
 
             using (var database = context ?? DbFactory.GetDatabaseContext())
             {
-                var developersDB = new HashSet<Developer>(database.Developer);
 
 
-                var developersToAdd = filted.Where(c => !developersDB.Any(db => c.Name.Trim().ToLower() == db.Name.Trim().ToLower()));
+                // return any publishers not in database
+                var developersNotInDB = developers.Where(c => !database.Developer
+                .Any(db => c.Name.ToLower().Trim() == db.Name.ToLower().Trim()));
 
-
-                database.Developer.AddRange(developersToAdd);
+                database.Developer.AddRange(developersNotInDB);
 
                 await database.SaveChangesAsync();
 
-                var filteredDevelopersAdded = filted.Where(c => developersDB.Any(db => c.Name.Trim().ToLower() == db.Name.Trim().ToLower())).ToList();
+                // return all of the publishers from databased based on the list
+                var developersInDB = developers.Select
+                (p => database.Developer.First
+               (pb => pb.Name.ToLower().Trim() == p.Name.ToLower().Trim()));
 
-                filteredDevelopersAdded.AddRange(developersToAdd);
-
-
-                return filteredDevelopersAdded.Select(c => c.DeveloperId).ToList();
+                return developersInDB.Select(f => f.DeveloperId).ToList();
             }
         }
 
@@ -321,51 +326,52 @@ namespace Application.GameCity
 
         }
 
-        public async Task<List<Guid>> AddGenreAsync(List<Genre> filted, DatabaseContext context = null)
+        public async Task<List<Guid>> AddGenreAsync(List<Genre> genres, DatabaseContext context = null)
         {
             using (var database = context ?? DbFactory.GetDatabaseContext())
             {
-                var genreDB = new HashSet<Genre>(database.Genre);
 
 
-                var genreToAdd = filted.Where(c => !genreDB.Any(db => c.Description.Trim().ToLower() == db.Description.Trim().ToLower())).ToList();
 
+                var genresNotInDB = genres.Where(c => !database.Genre
+                .Any(db => c.Description.ToLower().Trim() == db.Description.ToLower().Trim()));
 
-                database.Genre.AddRange(genreToAdd);
+                database.Genre.AddRange(genresNotInDB);
 
                 await database.SaveChangesAsync();
 
-                var filteredGenreAdded = filted.Where(c => genreDB.Any(db => c.Description.Trim().ToLower() == db.Description.Trim().ToLower())).ToList();
+                // return all of the publishers from databased based on the list
+                var genresInDB = genres.Select
+                (p => database.Genre.First
+               (pb => pb.Description.ToLower().Trim() == p.Description.ToLower().Trim()));
 
-                filteredGenreAdded.AddRange(genreToAdd);
+                return genresInDB.Select(f => f.GenreId).ToList();
 
 
-                return filteredGenreAdded.Select(c => c.GenreId).ToList();
             }
         }
 
 
-        public async Task<List<Guid>> AddPublisherAsync(List<Publisher> filted, DatabaseContext context = null)
+        public async Task<List<Guid>> AddPublisherAsync(List<Publisher> publishers, DatabaseContext context = null)
         {
 
             using (var database = context ?? DbFactory.GetDatabaseContext())
             {
-                var publisherDB = new HashSet<Publisher>(database.Publisher);
 
+                // return any publishers not in database
+                var publishersNotInDB = publishers.Where(c => !database.Publisher
+                .Any(db => c.Name.ToLower().Trim() == db.Name.ToLower().Trim()));
 
-                var publisherToAdd = filted.Where(c => !publisherDB.Any(db => c.Name.Trim().ToLower() == db.Name.Trim().ToLower())).ToList();
-
-
-                database.Publisher.AddRange(publisherToAdd);
+                database.Publisher.AddRange(publishersNotInDB);
 
                 await database.SaveChangesAsync();
 
-                var filteredPublisherAdded = publisherDB.Where(pb => filted.Any(f => f.Name.Trim().ToLower() == pb.Name.Trim().ToLower())).ToList();
+                // return all of the publishers from databased based on the list
+                var publishersInDB = publishers.Select
+                (p => database.Publisher.First
+               (pb => pb.Name.ToLower().Trim() == p.Name.ToLower().Trim()));
 
-                filteredPublisherAdded.AddRange(publisherToAdd);
-
-
-                return filteredPublisherAdded.Select(f => f.PublisherId).ToList();
+                return publishersInDB.Select(f => f.PublisherId).ToList();
             }
         }
 
@@ -390,26 +396,27 @@ namespace Application.GameCity
             }
         }
 
-        public async Task<List<Guid>> AddDLCAsync(List<DLC> dLCs, DatabaseContext context = null)
+        public async Task<List<Guid>> AddDLCAsync(List<DLC> dlcs, DatabaseContext context = null)
         {
             using (var database = context ?? DbFactory.GetDatabaseContext())
             {
-                var dLCsDB = new HashSet<DLC>(database.DLC);
 
 
-                var dLCsToAdd = dLCs.Where(c => !dLCsDB.Any(db => c.SteamAppID == db.SteamAppID)).ToList();
+                // return any publishers not in database
+                var dlcsNotInDB = dlcs.Where(c => !database.DLC
+                .Any(db => c.SteamAppID == db.SteamAppID));
 
-
-                database.DLC.AddRange(dLCsToAdd);
+                database.DLC.AddRange(dlcsNotInDB);
 
                 await database.SaveChangesAsync();
 
-                var filteredDLCAdded = dLCs.Where(c => dLCsDB.Any(db => c.SteamAppID == db.SteamAppID)).ToList();
+                // return all of the publishers from databased based on the list
+                var dlcInDB = dlcs.Select(p =>
+                database.DLC.First(pb => pb.SteamAppID == p.SteamAppID));
 
-                filteredDLCAdded.AddRange(dLCsToAdd);
+                return dlcInDB.Select(f => f.DLCId).ToList();
 
 
-                return filteredDLCAdded.Select(c => c.DLCId).ToList();
             }
         }
 
