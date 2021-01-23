@@ -8,8 +8,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="5.0.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Persistence\Persistence.csproj" />
-    <ProjectReference Include="..\SteamAPI\SteamAPI.csproj" />
     <ProjectReference Include="..\Application\Application.csproj" />
+    <ProjectReference Include="..\GameStoreServices\GameStoreServices.csproj" />
   </ItemGroup>
 </Project>

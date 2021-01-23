@@ -1,0 +1,85 @@
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
+using System;
+
+
+/// <summary>
+/// sourice https://stackoverflow.com/questions/48791322/how-to-ignore-empty-arrays-using-jsonconvert-deserializeobject
+/// </summary>
+namespace Webservices.JsonConverters
+{
+    public class IgnoreUnexpectedArraysConverter<T> : IgnoreUnexpectedArraysConverterBase
+    {
+        public override bool CanConvert(Type objectType)
+        {
+            return typeof(T).IsAssignableFrom(objectType);
+        }
+    }
+
+    public class IgnoreUnexpectedArraysConverter : IgnoreUnexpectedArraysConverterBase
+    {
+        readonly IContractResolver resolver;
+
+        public IgnoreUnexpectedArraysConverter(IContractResolver resolver)
+        {
+            if (resolver == null)
+                throw new ArgumentNullException();
+            this.resolver = resolver;
+        }
+
+        public override bool CanConvert(Type objectType)
+        {
+            if (objectType.IsPrimitive || objectType == typeof(string))
+                return false;
+            return resolver.ResolveContract(objectType) is JsonObjectContract;
+        }
+    }
+
+    public abstract class IgnoreUnexpectedArraysConverterBase : JsonConverter
+    {
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            var contract = serializer.ContractResolver.ResolveContract(objectType);
+
+            do
+            {
+                if (reader.TokenType == JsonToken.Null)
+                    return null;
+                else if (reader.TokenType == JsonToken.Comment)
+                    continue;
+                else if (reader.TokenType == JsonToken.StartArray)
+                {
+                    var array = JArray.Load(reader);
+                    if (array.Count > 0)
+                        throw new JsonSerializationException(string.Format("Array was not empty."));
+                    return null;
+                }
+                else if (reader.TokenType == JsonToken.StartObject)
+                {
+                    // Prevent infinite recursion by using Populate()
+                    existingValue = existingValue ?? contract.DefaultCreator();
+                    serializer.Populate(reader, existingValue);
+                    return existingValue;
+                }
+                else if (reader.TokenType == JsonToken.String)
+                {
+                    return reader.Value;
+                }
+                else
+                {
+                    throw new JsonSerializationException(string.Format("Unexpected token {0}", reader.TokenType));
+                }
+            }
+            while (reader.Read());
+            throw new JsonSerializationException("Unexpected end of JSON.");
+        }
+
+        public override bool CanWrite { get { return false; } }
+
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            throw new NotImplementedException();
+        }
+    }
+}

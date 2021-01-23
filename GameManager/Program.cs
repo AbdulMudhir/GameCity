@@ -1,7 +1,7 @@
-﻿using System;
+﻿
 using System.Threading.Tasks;
-using GameManager.Steam;
-using Persistence.DBFactories;
+
+using GameStoreServices.Steam;
 
 namespace GameManager
 {
@@ -9,26 +9,27 @@ namespace GameManager
     {
 
 
-        public static void Main(string[] args)
+        public async static Task Main(string[] args)
         {
+            var SteamStore = new SteamGameService();
 
+            SteamStore.RunAsync();
 
+            SteamStore.updateReceived += OnUpdateReceived;
 
-            var steamManager = new SteamManager();
+            await Task.Delay(-1);
 
-
-            steamManager.Start();
-
-
-            while (true)
-            {
-
-     
-
-                
-
-
-            }
         }
+
+        public static void OnUpdateReceived(object source)
+        {
+            
+          var game = (SteamGameService) source;
+
+          System.Console.WriteLine(game.GetGame()?.Name);
+
+           
+        }
+
     }
 }
