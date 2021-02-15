@@ -18,6 +18,7 @@ namespace Application
         Task AddVieoAsync(List<Video> videos);
         Task<List<Guid>> CreateCategoryAsync(List<Category> categories, DatabaseContext context = null);
         Task<Guid> CreateGameAsync(Game game, DatabaseContext context = null);
+        Task<Guid> AddSteamGameAsync(Game game, DatabaseContext context = null);
         Task CreateGameCategores(List<GameCategory> gameCategories, DatabaseContext context = null);
         Task CreateGameDealAsync(GameDeal deal, DatabaseContext context = null);
         Task CreateGameDevelopers(List<GameDeveloper> gamedevelopers, DatabaseContext context = null);

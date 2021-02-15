@@ -14,5 +14,9 @@ namespace Domain.DatabaseModel
         public int SteamReviewCount { get; set; }
 
         public int SteamId { get; set; }
+
+        public int? SteamIdLinkedTo { get; set; }
+
+        public bool ValidSteamId { get; set; } =true;
     }
 }

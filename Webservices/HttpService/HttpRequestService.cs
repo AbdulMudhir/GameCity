@@ -19,7 +19,7 @@ namespace Webservices.HttpService
         private readonly int _maximumRetryBeforeFail;
 
 
-        public HttpRequestService() : this(HttpFactories.GetHttpClient(), TimeSpan.FromMinutes(5), 5, RequestUtilityFactory.GetTokenBucket())
+        public HttpRequestService() : this(HttpFactories.GetHttpClient(), TimeSpan.FromMinutes(2), 5, RequestUtilityFactory.GetTokenBucket())
         {
 
         }

@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace GameManager.Utils
+namespace GameStoreServices.Extension
 {
     public static class CustomLinqExtension
     {
-        public static List<List<T>> Split<T>(this IEnumerable<T> source,int size)
+         public static List<List<T>> Split<T>(this IEnumerable<T> source,int size)
         {
             var list = new List<List<T>>();
             var sourceLists = source.ToList();

@@ -1,7 +1,11 @@
 ﻿
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-
+using Domain.DatabaseModel;
 using GameStoreServices.Steam;
+using Persistence.DBFactories;
+using Webservices.API.Factory;
 
 namespace GameManager
 {
@@ -11,25 +15,36 @@ namespace GameManager
 
         public async static Task Main(string[] args)
         {
-            var SteamStore = new SteamGameService();
+            var steamApi = APIFactory.GetSteamAPI();
 
-            SteamStore.RunAsync();
+            var steamStore = new SteamGameService(steamApi);
+            var steamPriceService = new SteamPriceService(steamApi);
 
-            SteamStore.updateReceived += OnUpdateReceived;
+
+            var DatabaseManager = new SteamGameDatabaseManager(DbFactory.GetDatabaseContext());
+            var priceManager = new SteamPriceDatabaseManager(DbFactory.GetDatabaseContext());
+
+            steamStore.updateReceived += DatabaseManager.OnUpdateReceived;
+            DatabaseManager.databaseUpdated += priceManager.OnDatabaseUpdated;
+            priceManager.GameDealAdded += OnDatabaseUpdated;
+
+
+            steamPriceService.SteamAPPSalePriceUpdatRecieved += priceManager.OnSteamAppPriceRecieved;
+
+            steamStore.RunAsync();
+            steamPriceService.RunAsync();
+
+
 
             await Task.Delay(-1);
 
         }
 
-        public static void OnUpdateReceived(object source)
+        public static void OnDatabaseUpdated(GameDeal gameDeal)
         {
-            
-          var game = (SteamGameService) source;
-
-          System.Console.WriteLine(game.GetGame()?.Name);
-
-           
+            System.Console.WriteLine(gameDeal.Url);
         }
+
 
     }
 }

@@ -1,41 +1,40 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-using Application;
-using Application.Factory;
 using GameStoreServices.Abstracts;
+using Persistence;
+using Persistence.DBFactories;
 using Webservices.API.Factory;
+using Webservices.API.Steam;
 using Webservices.API.Steam.Interface;
 using Webservices.Models.Steam.BaseAppModel;
 using Webservices.Models.Steam.FullGameModel;
 
 namespace GameStoreServices.Steam
 {
-    public class SteamGameService : GameService
+    public class SteamGameService : BaseSteamService
     {
 
 
-        private readonly ISteamAPI _steamAPI;
+        public SteamGameService(ISteamAPI api):base(api)
+        {
 
-        private readonly IDatabaseManager _databaseManager;
+        }
+
 
         private SteamAppDetails _game;
 
+        private int _steamID;
 
-        public SteamGameService(ISteamAPI api):this(api, DatabaseManagerFactory.GetDatabaseManager())
-        {
+        public int SteamID { get => _steamID; set => _steamID = value; }
+        public SteamAppDetails Game { get => _game; set => _game = value; }
 
-        }
-
-        public SteamGameService() : this(APIFactory.GetSteamAPI())
-        {
-
-        }
 
         // filter out all steam games already in the database
         private async Task<List<SteamApp>> GetListOfGamesNotInDBAsync()
         {
-            var set = new HashSet<int>(await _databaseManager.GetAllSteamIdAsync());
+            var set = new HashSet<int>(_databaseContext.SteamApp.Select(app => app.SteamId));
 
             var appsFromSteam = await _steamAPI.GetAppsAsync();
 
@@ -44,11 +43,6 @@ namespace GameStoreServices.Steam
             return appsFromSteam;
         }
 
-        public SteamGameService(ISteamAPI steamAPI, IDatabaseManager databaseManager)
-        {
-            _steamAPI = steamAPI;
-            _databaseManager = databaseManager;
-        }
 
         public override async void RunAsync()
         {
@@ -56,32 +50,30 @@ namespace GameStoreServices.Steam
             do
             {
                 var steamapps = await GetListOfGamesNotInDBAsync();
+                
+                Console.WriteLine($"Total Steam Apps Left {steamapps.Count}");
 
                 foreach (var app in steamapps)
                 {
                     var steamAppDetails = await _steamAPI.GetAppBySteamIDAsync(app.appid);
-
-                    setGame(steamAppDetails);
+                    SteamID = app.appid;
+                    Game = steamAppDetails;
+                    System.Console.WriteLine(app.appid);
+                    OnUpdateReceived(this);
 
                 }
 
-                await Task.Delay(TimeSpan.FromHours(5));
+                Console.WriteLine("All Apps up to date. Checking next 1 hour for further update ");
+
+                await Task.Delay(TimeSpan.FromHours(1));
 
 
             } while (true);
 
         }
 
-        public void setGame(SteamAppDetails game)
-        {
-            this._game = game;
-            OnUpdateReceived(this);
-        }
 
-        
-        public SteamAppDetails GetGame()
-        {
-            return this._game;
-        }
+
+
     }
 }
