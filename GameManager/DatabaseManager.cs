@@ -38,6 +38,23 @@ namespace GameManager
             databaseUpdated?.Invoke(this);
         }
 
+        protected async void SetGameDealExpired(Guid gameDealId)
+        {
+            using (var databaseContext = DbFactory.GetDatabaseContext())
+            {
+
+                var gamedealDB = databaseContext.GameDeal.Include(x => x.DealDate)
+                .FirstOrDefault(x => x.GameDealId == gameDealId);
+
+                gamedealDB.DealDate.Expired = true;
+                gamedealDB.DealDate.ExpiredDate = DateTime.Now;
+
+                await databaseContext.SaveChangesAsync();
+
+            }
+
+        }
+
         protected async void AddVideoAsync(List<Domain.DatabaseModel.Video> videos)
         {
 
@@ -50,6 +67,17 @@ namespace GameManager
             }
 
 
+        }
+
+        protected async Task<bool> SteamGameDealExistsAsync(string store, int steamId, string currencyCode)
+        {
+            using (var databaseContext = DbFactory.GetDatabaseContext())
+            {
+                return await databaseContext
+                          .GameDeal.AnyAsync(x => x.PriceOverview.Currency.Code
+                         == currencyCode && x.Store.Name == store && !x.DealDate.Expired &&
+                         x.Game.SteamApp.SteamId == steamId);
+            }
         }
 
         public async void AddGameDevelopers(List<GameDeveloper> gamedevelopers)

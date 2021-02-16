@@ -16,6 +16,7 @@ namespace Domain.DatabaseModel
         public string Thumbnail { get; set; }
         public string Description { get; set; }
 
+        public List<GameDeal> GameDeals { get; set; }
         public ReleaseDate? ReleaseDate { get; set; }
         public Guid? ReleaseDateID { get; set; }
         public string HeaderImage { get; set; }

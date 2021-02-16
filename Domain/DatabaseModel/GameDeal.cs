@@ -11,6 +11,8 @@ namespace Domain.DatabaseModel
         [Required]
         public string Url { get; set; }
 
+        public bool Available { get; set; } = true;
+
         public Game Game {get;set;}
 
         [Required]

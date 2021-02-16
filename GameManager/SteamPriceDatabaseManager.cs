@@ -41,107 +41,142 @@ namespace GameManager
             var gameManager = (SteamGameDatabaseManager)databaseManager;
             // making sure only when new game is added 
 
-
-            AddGameDealAsync(gameManager.RecentGameAddedToDB, gameManager.SteamappDetails.PriceOverview);
-
-        }
-
-
-        public void OnSteamAppPriceRecieved(List<PriceOverviewUpdateResponse> priceoverviews)
-        {   
-
-            foreach(var priceoverview in priceoverviews)
-            {
-               
-            }
+            var steamappdetails = gameManager.SteamappDetails;
+            AddGameDealAsync(gameManager.RecentGameAddedToDB,
+            new PriceOverviewUpdateResponse { IsFree = steamappdetails.IsFree, Priceoverview = steamappdetails.PriceOverview });
 
         }
 
 
 
-        private async void AddGameDealAsync(Game game, Webservices.Models.Steam.FullGameModel.PriceOverview priceOverview)
+        public async void OnSteamAppPriceRecieved(List<PriceOverviewUpdateResponse> priceoverviewupdateresponses)
         {
 
-            GameDeal gameDeal;
-            Domain.DatabaseModel.PriceOverview po;
-
-            // game is f2p
-            if (priceOverview == null)
+            foreach (var priceoverviewupdateresponse in priceoverviewupdateresponses)
             {
-                gameDeal = _databaseContext.GameDeal.FirstOrDefault(gd => gd.GameId == game.GameID && gd.Store.Name == _storeName && !gd.DealDate.Expired);
+                var priceoverview = priceoverviewupdateresponse.Priceoverview;
 
-                po = null;
+                if (priceoverview is null)
+                {
+                    AddGameDealAsync(priceoverviewupdateresponse.GameDeal.Game,
+                     new PriceOverviewUpdateResponse { Priceoverview = 
+                     priceoverview, IsFree =priceoverviewupdateresponse.IsFree, 
+                     Available =priceoverviewupdateresponse.Available  });
+
+                     continue;
+                }
+
+                if (priceoverviewupdateresponse.IsNewCurrency)
+                {
+                    var gameDealForThisCurrencyExists = await
+                    SteamGameDealExistsAsync("steam", priceoverviewupdateresponse.GameDeal.Game.SteamApp.SteamId, priceoverview.Currency);
+
+                    if (gameDealForThisCurrencyExists)
+                    {
+                        throw new Exception("Game Deal for this currency exists implement an update feature for this");
+                    }
+
+
+                    AddGameDealAsync(priceoverviewupdateresponse.GameDeal.Game, new PriceOverviewUpdateResponse { Priceoverview = priceoverview });
+                }
+                else
+                {
+                    if (priceoverviewupdateresponse.GameDeal.Game.SteamApp.SteamId == 357070)
+                    {
+                        Console.WriteLine("here");
+                    }
+
+                    if (IsPriceEqual(priceoverviewupdateresponse.GameDeal.PriceOverview, priceoverview))
+                    {
+                        continue;
+                    }
+                    else
+                    {
+
+                        SetGameDealExpired(priceoverviewupdateresponse.GameDeal.GameDealId);
+                        AddGameDealAsync(priceoverviewupdateresponse.GameDeal.Game, new PriceOverviewUpdateResponse { Priceoverview = priceoverview });
+                    }
+                }
             }
 
+        }
+
+
+
+
+
+        private bool IsPriceEqual(Domain.DatabaseModel.PriceOverview source, Webservices.Models.Steam.FullGameModel.PriceOverview api)
+        {
+            if (source.Currency.Code != api.Currency)
+            {
+                throw new Exception("Currency Code does not match");
+            }
             else
             {
-                gameDeal = _databaseContext.GameDeal
-                           .FirstOrDefault(gd => gd.GameId == game.GameID && gd.Store.Name == _storeName &&
-                           gd.PriceOverview.Currency.Code == priceOverview.Currency && !gd.DealDate.Expired);
+                var sourceFinalPrice = (int)source.FinalPrice;
+                var apiFinalPrice = (int)api.Final;
+
+                return sourceFinalPrice == apiFinalPrice;
+            }
+        }
 
 
-                string currencyCode = priceOverview.Currency;
+        private async void AddGameDealAsync(Game game, PriceOverviewUpdateResponse priceOverviewUpdate)
+        {
 
-                po = new Domain.DatabaseModel.PriceOverview()
+
+            var gameDeal = new GameDeal
+            {
+                Url = baseUrl + game.SteamApp.SteamId,
+                Store = new Store
                 {
-                    Price = priceOverview.Initial,
-                    PriceFormat = priceOverview.InitialFormat,
-                    FinalPrice = priceOverview.Final,
-                    FinalPriceFormat = priceOverview.FinalFormat,
+                    Name = _storeName,
+                },
+                GameId = game.GameID,
+                DealDate = new DealDate
+                {
+                    DatePosted = DateTime.Now,
+                    ExpiringDate = null,
+                    Expired = false,
+                },
+                Available = priceOverviewUpdate.Available,
+                IsFree = priceOverviewUpdate.IsFree
+
+            };
+
+
+
+            if (priceOverviewUpdate.Priceoverview != null)
+            {
+                gameDeal.PriceOverview = new Domain.DatabaseModel.PriceOverview()
+                {
+                    Price = priceOverviewUpdate.Priceoverview.Initial,
+                    PriceFormat = priceOverviewUpdate.Priceoverview.InitialFormat,
+                    FinalPrice = priceOverviewUpdate.Priceoverview.Final,
+                    FinalPriceFormat = priceOverviewUpdate.Priceoverview.FinalFormat,
                     Currency = new Currency
                     {
-                        Code = currencyCode
+                        Code = priceOverviewUpdate.Priceoverview.Currency
 
                     },
-                    DiscountPercentage = priceOverview.DiscountPercentage
+                    DiscountPercentage = priceOverviewUpdate.Priceoverview.DiscountPercentage
 
                 };
 
+                gameDeal.DealDate.LimitedTimeDeal = priceOverviewUpdate.Priceoverview.DiscountPercentage > 0;
+
+
+                gameDeal.IsFree = (priceOverviewUpdate.Priceoverview.DiscountPercentage == 100) || priceOverviewUpdate.IsFree;
 
             }
-
-
-            if (gameDeal == null)
-            {
-
-                gameDeal = new GameDeal
-                {
-                    Url = baseUrl + game.SteamApp.SteamId,
-                    Store = new Store
-                    {
-                        Name = _storeName,
-                    },
-                    GameId = game.GameID,
-                    DealDate = new DealDate
-                    {
-                        DatePosted = DateTime.Now,
-                        ExpiringDate = null,
-                        Expired = false,
-                    },
-                    PriceOverview = po,
-
-
-                };
+    
 
 
 
-                gameDeal.DealDate.LimitedTimeDeal = priceOverview == null ? false : (priceOverview.DiscountPercentage > 0);
-                gameDeal.IsFree = priceOverview == null ? true : (priceOverview.DiscountPercentage == 100);
+            _gameDealAddedToDb = await AddGameDealAsync(gameDeal);
 
-                _gameDealAddedToDb = await AddGameDealAsync(gameDeal);
+            OnGameDealAdded();
 
-                OnGameDealAdded();
-
-            }
-
-            else
-            {
-                _gameDealAddedToDb = null;
-                // get function that updates price
-                System.Console.WriteLine("Game deal Exist");
-
-                throw new NotImplementedException("Game Deal Already Exist");
-            }
 
 
         }

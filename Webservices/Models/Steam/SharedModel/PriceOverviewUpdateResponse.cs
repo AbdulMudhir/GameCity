@@ -11,5 +11,10 @@ namespace Webservices.Models.Steam.FullGameModel
 
         public PriceOverview Priceoverview { get; set; }
 
+        public bool IsFree { get; set; } = false;
+        public bool IsNewCurrency { get; set; } = false;
+
+        public bool Available { get; set; } = true;
+
     }
 }

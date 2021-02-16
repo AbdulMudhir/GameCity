@@ -30,6 +30,7 @@ namespace GameManager
 
 
             steamPriceService.SteamAPPSalePriceUpdatRecieved += priceManager.OnSteamAppPriceRecieved;
+            steamPriceService.SteamAPPPriceUpdatRecieved+= priceManager.OnSteamAppPriceRecieved;
 
             steamStore.RunAsync();
             steamPriceService.RunAsync();
@@ -42,7 +43,6 @@ namespace GameManager
 
         public static void OnDatabaseUpdated(GameDeal gameDeal)
         {
-            System.Console.WriteLine(gameDeal.Url);
         }
 
 
