@@ -13,8 +13,11 @@ namespace GameManager
 
         private const string _storeName = "steam";
 
+        private bool _running { get; set; }
 
         private string baseUrl = $"https://store.steampowered.com/app/";
+
+        private List<PriceOverviewUpdateResponse> _onHolSteamAppPricedResponses;
 
 
         public delegate void GameDealAddedEventHandler(GameDeal gameDeal);
@@ -27,7 +30,7 @@ namespace GameManager
 
         public SteamPriceDatabaseManager(DatabaseContext databaseContext) : base(databaseContext)
         {
-
+            _onHolSteamAppPricedResponses = new List<PriceOverviewUpdateResponse>();
         }
 
         public override void OnUpdateReceived(GameService gameService)
@@ -48,10 +51,43 @@ namespace GameManager
         }
 
 
+        private async void filterCachedSteamAppPriceAync(List<PriceOverviewUpdateResponse> priceoverviewupdateresponses)
+        {
+            var steamappprice = new HashSet<Guid>(_onHolSteamAppPricedResponses.Select(x => x.GameDeal.GameDealId));
 
-        public async void OnSteamAppPriceRecieved(List<PriceOverviewUpdateResponse> priceoverviewupdateresponses)
+            foreach (var response in priceoverviewupdateresponses)
+            {
+
+                if (steamappprice.Contains(response.GameDeal.GameDealId))
+                {
+                    continue;
+                }
+                else
+                {
+                    _onHolSteamAppPricedResponses.Add(response);
+
+                }
+            }
+        }
+
+
+        public void OnSteamAppPriceRecieved(List<PriceOverviewUpdateResponse> priceoverviewupdateresponses)
         {
 
+            if (_running)
+            {
+                filterCachedSteamAppPriceAync(priceoverviewupdateresponses);
+            }
+            else
+            {
+
+                SteamAppPricUpdate(priceoverviewupdateresponses);
+            }
+        }
+
+        private async void SteamAppPricUpdate(List<PriceOverviewUpdateResponse> priceoverviewupdateresponses)
+        {
+            _running = true;
             foreach (var priceoverviewupdateresponse in priceoverviewupdateresponses)
             {
                 var priceoverview = priceoverviewupdateresponse.Priceoverview;
@@ -59,32 +95,35 @@ namespace GameManager
                 if (priceoverview is null)
                 {
                     AddGameDealAsync(priceoverviewupdateresponse.GameDeal.Game,
-                     new PriceOverviewUpdateResponse { Priceoverview = 
-                     priceoverview, IsFree =priceoverviewupdateresponse.IsFree, 
-                     Available =priceoverviewupdateresponse.Available  });
+                     new PriceOverviewUpdateResponse
+                     {
+                         Priceoverview =
+                     priceoverview,
+                         IsFree = priceoverviewupdateresponse.IsFree,
+                         Available = priceoverviewupdateresponse.Available
+                     });
 
-                     continue;
+                    continue;
                 }
 
-                if (priceoverviewupdateresponse.IsNewCurrency)
+                if (priceoverviewupdateresponse.New)
                 {
                     var gameDealForThisCurrencyExists = await
                     SteamGameDealExistsAsync("steam", priceoverviewupdateresponse.GameDeal.Game.SteamApp.SteamId, priceoverview.Currency);
 
+                    /// double check this
                     if (gameDealForThisCurrencyExists)
                     {
-                        throw new Exception("Game Deal for this currency exists implement an update feature for this");
+                        //implement price check
+                        continue;
                     }
-
-
-                    AddGameDealAsync(priceoverviewupdateresponse.GameDeal.Game, new PriceOverviewUpdateResponse { Priceoverview = priceoverview });
+                    else
+                    {
+                        AddGameDealAsync(priceoverviewupdateresponse.GameDeal.Game, new PriceOverviewUpdateResponse { Priceoverview = priceoverview });
+                    }
                 }
                 else
                 {
-                    if (priceoverviewupdateresponse.GameDeal.Game.SteamApp.SteamId == 357070)
-                    {
-                        Console.WriteLine("here");
-                    }
 
                     if (IsPriceEqual(priceoverviewupdateresponse.GameDeal.PriceOverview, priceoverview))
                     {
@@ -92,6 +131,8 @@ namespace GameManager
                     }
                     else
                     {
+                        Console.WriteLine($@"New Price Updated  for {priceoverviewupdateresponse.GameDeal.Game.Title} 
+                        from {priceoverviewupdateresponse.GameDeal.PriceOverview.FinalPriceFormat} to {priceoverviewupdateresponse.Priceoverview.FinalFormat}");
 
                         SetGameDealExpired(priceoverviewupdateresponse.GameDeal.GameDealId);
                         AddGameDealAsync(priceoverviewupdateresponse.GameDeal.Game, new PriceOverviewUpdateResponse { Priceoverview = priceoverview });
@@ -99,9 +140,17 @@ namespace GameManager
                 }
             }
 
+
+            Console.WriteLine("Steam App Price Batch Completed");
+
+            _running = false;
+
+            if (_onHolSteamAppPricedResponses.Count > 0)
+            {
+                SteamAppPricUpdate(_onHolSteamAppPricedResponses);
+                _onHolSteamAppPricedResponses.Clear();
+            }
         }
-
-
 
 
 
@@ -169,7 +218,7 @@ namespace GameManager
                 gameDeal.IsFree = (priceOverviewUpdate.Priceoverview.DiscountPercentage == 100) || priceOverviewUpdate.IsFree;
 
             }
-    
+
 
 
 

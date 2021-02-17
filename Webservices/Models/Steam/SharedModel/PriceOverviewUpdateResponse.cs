@@ -5,6 +5,14 @@ namespace Webservices.Models.Steam.FullGameModel
 {
     public class PriceOverviewUpdateResponse
     {
+        // double check this
+        public DateTime DateReceived { get; set; }
+
+        public PriceOverviewUpdateResponse()
+        {
+            DateReceived = DateTime.Now;
+        }
+
         public GameDeal GameDeal { get; set; }
 
         public int SteamAppId { get; set; }
@@ -12,7 +20,7 @@ namespace Webservices.Models.Steam.FullGameModel
         public PriceOverview Priceoverview { get; set; }
 
         public bool IsFree { get; set; } = false;
-        public bool IsNewCurrency { get; set; } = false;
+        public bool New { get; set; } = false;
 
         public bool Available { get; set; } = true;
 

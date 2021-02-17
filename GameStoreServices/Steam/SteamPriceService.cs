@@ -7,6 +7,7 @@ using Domain.DatabaseModel;
 using GameStoreServices.Abstracts;
 using GameStoreServices.Extension;
 using Microsoft.EntityFrameworkCore;
+using Persistence.DBFactories;
 using Webservices.API.Steam.Interface;
 using Webservices.Models.Steam.FullGameModel;
 using Webservices.Models.Steam.PriceoverviewModel;
@@ -29,7 +30,9 @@ namespace GameStoreServices.Steam
         private async Task<List<GameDeal>> GetSteamGamesOnSaleAsync()
         {
 
-            var gameDealsCurrentlyOnSale = await _databaseContext.GameDeal
+            using (var databaseContext = DbFactory.GetDatabaseContext())
+            {
+                var gameDealsCurrentlyOnSale = await databaseContext.GameDeal
                           .Where(gd => gd.PriceOverview.DiscountPercentage > 0 && gd.Store.Name == "steam" && !gd.DealDate.Expired)
                           .Include(p => p.PriceOverview)
                           .Include(g => g.Game)
@@ -38,25 +41,28 @@ namespace GameStoreServices.Steam
                           .Include(dd => dd.DealDate).ToListAsync();
 
 
-            return gameDealsCurrentlyOnSale;
+                return gameDealsCurrentlyOnSale;
+            }
         }
 
         private async Task<List<Game>> GetSteamAppsAsync()
         {
+            using (var databaseContext = DbFactory.GetDatabaseContext())
+            {
+                var games = await databaseContext.Game
+                              .Where(x => x.SteamApp != null && x.SteamApp.ValidSteamId)
+                              .Include(x => x.SteamApp)
+                              .Include(x => x.GameDeals.Where(g => g.PriceOverview != null
+                              && !g.DealDate.Expired && !g.DealDate.LimitedTimeDeal && g.Available)).ThenInclude(x => x.DealDate)
+                              .Include(x => x.GameDeals.Where(g =>
+                              g.PriceOverview != null && !g.DealDate.Expired &&
+                              !g.DealDate.LimitedTimeDeal && g.Available)).ThenInclude(x => x.PriceOverview)
+                              .ThenInclude(gd => gd.Currency)
+                              .ToListAsync();
 
-            var games = await _databaseContext.Game
-                          .Where(x => x.SteamApp != null && x.SteamApp.ValidSteamId)
-                          .Include(x => x.SteamApp)
-                          .Include(x => x.GameDeals.Where(g => g.PriceOverview != null
-                          && !g.DealDate.Expired && !g.DealDate.LimitedTimeDeal && g.Available)).ThenInclude(x => x.DealDate)
-                          .Include(x => x.GameDeals.Where(g =>
-                          g.PriceOverview != null && !g.DealDate.Expired &&
-                          !g.DealDate.LimitedTimeDeal && g.Available)).ThenInclude(x => x.PriceOverview)
-                          .ThenInclude(gd => gd.Currency)
-                          .ToListAsync();
 
-
-            return games;
+                return games;
+            }
         }
 
         protected void OnSalePriceUpdateReceived(List<PriceOverviewUpdateResponse> priceoverview)
@@ -107,14 +113,9 @@ namespace GameStoreServices.Steam
 
             foreach (var steamappIds in steamAppsIdSplit)
             {
-                var priceOverviewreponse = new List<PriceOverviewUpdateResponse>();
-
                 var steamAppsBaseResponse = await _steamAPI.GetPriceBySteamIdAsync(steamappIds);
 
-
-                priceOverviewreponse.AddRange(await ParseSteamAppBaseResponseAsync(steamApps, steamAppsBaseResponse));
-
-                OnPriceUpdateReceived(priceOverviewreponse);
+                OnPriceUpdateReceived(await ParseSteamAppBaseResponseAsync(steamApps, steamAppsBaseResponse));
 
             }
 
@@ -190,9 +191,9 @@ namespace GameStoreServices.Steam
                     }
                     else
                     {
-                       var steamapp =  _databaseContext.SteamApp.FirstOrDefault(x => x.SteamId == steamID);
+                        var steamapp = _databaseContext.SteamApp.FirstOrDefault(x => x.SteamId == steamID);
 
-                       steamapp.ValidSteamId = false;
+                        steamapp.ValidSteamId = false;
 
                         await _databaseContext.SaveChangesAsync();
 
@@ -217,7 +218,7 @@ namespace GameStoreServices.Steam
                         SteamAppId = gamedealForReference.Game.SteamApp.SteamId,
                         GameDeal = gamedealForReference,
                         Priceoverview = priceoverviewFromAPI,
-                        IsNewCurrency = true
+                        New = true
                     });
 
                     // Console.WriteLine($"Could not find the gamedeal for the following {response.Key} due to possiblity that currency code returned from api is not same as the one from database");
@@ -250,13 +251,13 @@ namespace GameStoreServices.Steam
             do
             {
                 RetrieveSteamAppPriceAsync();
-                // RetrieveSteamGameSalesPriceAsync();
+                RetrieveSteamGameSalesPriceAsync();
 
 
 
 
 
-                await Task.Delay(TimeSpan.FromHours(5));
+                await Task.Delay(TimeSpan.FromDays(1));
 
 
             } while (true);
